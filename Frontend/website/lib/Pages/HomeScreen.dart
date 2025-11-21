@@ -494,24 +494,48 @@ class _HomePageState extends ConsumerState<HomeScreen>
 
           const SizedBox(height: 20),
 
-          // ✅ Display results
+          // ✅ Display results using complete PhishingResponse model
           phishingState.when(
-            data: (data) {
-              if (data.isEmpty) return const SizedBox.shrink();
+            data: (response) {
+              if (response == null) return const SizedBox.shrink();
 
-              // Extract phishing result from response
-              final isPhishing =
-                  data['prediction'] == 1 ||
-                  data['is_phishing'] == true ||
-                  (data['label']?.toString().toLowerCase() == 'phishing');
-              final confidence = data['confidence'] ?? data['probability'];
+              if (!response.success) {
+                return _buildErrorCard(response.message);
+              }
 
-              return _buildResultCard(isPhishing, confidence, data);
+              final result = response.data;
+              return _buildResultCard(result);
             },
             loading: () => Container(
               padding: const EdgeInsets.all(20),
-              child: const CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6366F1)),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.white.withOpacity(0.1),
+                    Colors.white.withOpacity(0.05),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white.withOpacity(0.2)),
+              ),
+              child: Column(
+                children: [
+                  const CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Color(0xFF6366F1),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Analyzing URL security...',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.7),
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
               ),
             ),
             error: (error, stack) => _buildErrorCard(error.toString()),
@@ -586,38 +610,45 @@ class _HomePageState extends ConsumerState<HomeScreen>
     );
   }
 
-  Widget _buildResultCard(
-    bool isPhishing,
-    dynamic confidence,
-    Map<String, dynamic> fullData,
-  ) {
+  Widget _buildResultCard(dynamic result) {
+    // Extract all fields from the complete model
+    final isPhishing = result.isPhishing;
+    final confidence = result.confidence;
+    final url = result.url;
+    final riskLevel = result.riskLevel;
+    final probability = result.probability;
+
+    // Determine color based on risk level
+    Color getRiskColor() {
+      switch (riskLevel) {
+        case 'HIGH':
+          return Colors.red;
+        case 'MEDIUM':
+          return Colors.orange;
+        case 'LOW':
+          return Colors.green;
+        default:
+          return Colors.blue;
+      }
+    }
+
+    final riskColor = getRiskColor();
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 400),
       curve: Curves.easeOutCubic,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: isPhishing
-              ? [Colors.red.withOpacity(0.15), Colors.red.withOpacity(0.08)]
-              : [
-                  Colors.green.withOpacity(0.15),
-                  Colors.green.withOpacity(0.08),
-                ],
+          colors: [riskColor.withOpacity(0.15), riskColor.withOpacity(0.08)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isPhishing
-              ? Colors.red.withOpacity(0.3)
-              : Colors.green.withOpacity(0.3),
-          width: 2,
-        ),
+        border: Border.all(color: riskColor.withOpacity(0.3), width: 2),
         boxShadow: [
           BoxShadow(
-            color: isPhishing
-                ? Colors.red.withOpacity(0.2)
-                : Colors.green.withOpacity(0.2),
+            color: riskColor.withOpacity(0.2),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -625,50 +656,92 @@ class _HomePageState extends ConsumerState<HomeScreen>
       ),
       child: Column(
         children: [
+          // Icon
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: isPhishing
-                  ? Colors.red.withOpacity(0.2)
-                  : Colors.green.withOpacity(0.2),
+              color: riskColor.withOpacity(0.2),
             ),
             child: Icon(
               isPhishing ? Icons.warning_rounded : Icons.check_circle_rounded,
-              color: isPhishing ? Colors.red : Colors.green,
+              color: riskColor,
               size: 48,
             ),
           ),
           const SizedBox(height: 16),
+
+          // Main status
           Text(
             isPhishing ? 'Potential Threat Detected!' : 'URL Appears Safe',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: isPhishing ? Colors.red : Colors.green,
+              color: riskColor,
               fontSize: 22,
               fontWeight: FontWeight.bold,
               letterSpacing: -0.5,
             ),
           ),
-          if (confidence != null) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                'Confidence: ${(confidence * 100).toStringAsFixed(1)}%',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
+          const SizedBox(height: 12),
+
+          // Risk level badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: riskColor.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: riskColor.withOpacity(0.3)),
+            ),
+            child: Text(
+              'Risk Level: $riskLevel',
+              style: TextStyle(
+                color: riskColor,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
               ),
             ),
-          ],
+          ),
+          const SizedBox(height: 12),
+
+          // Confidence metrics row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildMetricChip(
+                'Confidence',
+                '${confidence.toStringAsFixed(1)}%',
+              ),
+              const SizedBox(width: 12),
+              _buildMetricChip(
+                'Probability',
+                '${(probability * 100).toStringAsFixed(1)}%',
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // URL display
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              url,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.6),
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
           const SizedBox(height: 16),
+
+          // Warning/info text
           Text(
             isPhishing
                 ? 'This URL may be attempting to steal your information. Proceed with extreme caution.'
@@ -678,6 +751,37 @@ class _HomePageState extends ConsumerState<HomeScreen>
               color: Colors.white.withOpacity(0.7),
               fontSize: 14,
               height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMetricChip(String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.6),
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],

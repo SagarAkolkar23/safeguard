@@ -3,24 +3,27 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:website/Services/PhishingDetectionService%20.dart';
 import 'package:website/core/BaseUrl.dart';
+import 'package:website/models/PhishingResult.dart';
 
+// 🧩 1️⃣ Provider for Service
 final phishingServiceProvider = Provider<PhishingDetectionService>((ref) {
   return PhishingDetectionService(baseUrl: backendBaseUrl);
 });
 
+// 🧠 2️⃣ StateNotifierProvider using the PhishingResponse model
 final phishingControllerProvider =
-    StateNotifierProvider<PhishingController, AsyncValue<Map<String, dynamic>>>(
-      (ref) {
-        final service = ref.watch(phishingServiceProvider);
-        return PhishingController(service);
-      },
-    );
+    StateNotifierProvider<PhishingController, AsyncValue<PhishingResponse?>>((
+      ref,
+    ) {
+      final service = ref.watch(phishingServiceProvider);
+      return PhishingController(service);
+    });
 
-class PhishingController
-    extends StateNotifier<AsyncValue<Map<String, dynamic>>> {
+// ⚙️ 3️⃣ Controller
+class PhishingController extends StateNotifier<AsyncValue<PhishingResponse?>> {
   final PhishingDetectionService _service;
 
-  PhishingController(this._service) : super(const AsyncData({}));
+  PhishingController(this._service) : super(const AsyncData(null));
 
   Future<void> checkUrl(String url) async {
     state = const AsyncLoading();
@@ -33,8 +36,7 @@ class PhishingController
     }
   }
 
-  // ✅ Method to clear results
   void clearResults() {
-    state = const AsyncData({});
+    state = const AsyncData(null);
   }
 }

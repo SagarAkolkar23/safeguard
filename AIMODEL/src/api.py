@@ -12,9 +12,9 @@ from datetime import datetime
 from src.feature_extractor import extract_features, get_feature_vector
 
 # --- Load model and metadata ---
-MODEL_PATH = "phishing_model.pkl"
-METADATA_PATH = "model_metadata.json"
-FEATURE_COLUMNS_PATH = "feature_columns.json"
+MODEL_PATH = "src/phishing_model.pkl"
+METADATA_PATH = "src/model_metadata.json"
+FEATURE_COLUMNS_PATH = "src/feature_columns.json"
 
 try:
     model = joblib.load(MODEL_PATH)

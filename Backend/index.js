@@ -20,7 +20,7 @@ app.use(
 );
 
 app.use("/auth", authRoute);
-app.use("/phish", phishRoute);
+app.use("/phishing", phishRoute);
 
 mongoose
   .connect(process.env.MONGODB_CONN, { dbName: "BlogIt" })

@@ -32,13 +32,13 @@ export const Register = async (req, res, next) => {
 export const Login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
+
     const user = await User.findOne({ email });
     if (!user) {
       return next(handleError(404, "User not found."));
     }
-    const hashedPassword = user.password;
 
-    const comparePassword = await bcryptjs.compare(password, hashedPassword);
+    const comparePassword = await bcryptjs.compare(password, user.password);
     if (!comparePassword) {
       return next(handleError(404, "Invalid login credentials."));
     }
@@ -50,9 +50,11 @@ export const Login = async (req, res, next) => {
         email: user.email,
         avatar: user.avatar,
       },
-      process.env.JWT_SECRET
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
     );
 
+    // Set cookie
     res.cookie("access_token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
@@ -60,11 +62,14 @@ export const Login = async (req, res, next) => {
       path: "/",
     });
 
+    // Prepare user object
     const newUser = user.toObject({ getters: true });
     delete newUser.password;
 
-    res.status(200).json({
+    // 🚀 Send token in response as well
+    return res.status(200).json({
       success: true,
+      token, // <--- ADDED HERE
       newUser,
       message: "Login Successful.",
     });
@@ -72,6 +77,7 @@ export const Login = async (req, res, next) => {
     next(handleError(500, error.message));
   }
 };
+
 
 
 export const Logout = async (req, res, next) => {
